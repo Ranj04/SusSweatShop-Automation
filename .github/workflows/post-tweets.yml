@@ -1,0 +1,92 @@
+name: Post Picks to Twitter
+
+on:
+  schedule:
+    # 9:00 AM EST (14:00 UTC)
+    - cron: '0 14 * * *'
+    # 12:00 PM EST (17:00 UTC)
+    - cron: '0 17 * * *'
+    # 5:00 PM EST (22:00 UTC)
+    - cron: '0 22 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      max_posts:
+        description: 'Maximum posts to make'
+        required: false
+        default: '2'
+      dry_run:
+        description: 'Dry run (no actual posting)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  post-tweets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Determine post count
+        id: config
+        run: |
+          HOUR=$(TZ=America/New_York date +%H)
+          echo "Current hour (EST): $HOUR"
+
+          # Morning (9 AM): 1-2 posts
+          # Midday (12 PM): 1-2 posts
+          # Evening (5 PM): 1 post
+          if [ "$HOUR" -ge 8 ] && [ "$HOUR" -lt 11 ]; then
+            echo "max_posts=2" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" -ge 11 ] && [ "$HOUR" -lt 14 ]; then
+            echo "max_posts=2" >> $GITHUB_OUTPUT
+          else
+            echo "max_posts=1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run bot
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          MAX_POSTS="${{ github.event.inputs.max_posts || steps.config.outputs.max_posts }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            python -m src.main --max-posts $MAX_POSTS --dry-run
+          else
+            python -m src.main --max-posts $MAX_POSTS
+          fi
+
+      - name: Upload posted picks record
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: posted-picks-${{ github.run_id }}
+          path: posted_picks.json
+          retention-days: 30
