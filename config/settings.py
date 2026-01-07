@@ -14,49 +14,69 @@ TWITTER_ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
 
 # Discord Configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-DISCORD_CHANNEL_ID = 1457600194672726220  # Your picks channel
+DISCORD_CHANNEL_ID = 1458326660515627243  # Picks channel
 
 # Gemini AI Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Bot Settings
 DISCORD_INVITE_LINK = "discord.gg/ZNwbqrCGqN"
+WEBSITE_URL = "https://sussweatshop.com"
 TWITTER_HANDLE = "@SusSweatShop"
 
-# Hashtags by sport
+# Hashtags by sport (optimized for reach)
 HASHTAGS = {
-    "NBA": "#NBA #NBABets #NBATwitter",
-    "NFL": "#NFL #NFLBets #NFLTwitter",
-    "MLB": "#MLB #MLBBets #MLBTwitter",
-    "NHL": "#NHL #NHLBets #NHLTwitter",
-    "default": "#SportsBetting #FreePicks #GamblingTwitter #SUSSWEATSHOP"
+    "NBA": "#NBA #NBABets #NBAPicks #NBATwitter #Basketball",
+    "NFL": "#NFL #NFLBets #NFLPicks #NFLTwitter #Football",
+    "MLB": "#MLB #MLBBets #MLBPicks #MLBTwitter #Baseball",
+    "NHL": "#NHL #NHLBets #NHLPicks #NHLTwitter #Hockey",
+    "NCAAB": "#NCAAB #CollegeBasketball #CBB #MarchMadness",
+    "NCAAF": "#NCAAF #CollegeFootball #CFB #CFBPicks",
+    "UFC": "#UFC #MMA #UFCPicks #UFCBets",
+    "SOCCER": "#Soccer #Football #EPL #LaLiga #SoccerPicks",
+    "default": "#SportsBetting #FreePicks #GamblingTwitter #Betting #Winners"
 }
+
+# Trending/viral hashtags to rotate
+VIRAL_HASHTAGS = [
+    "#BettingTwitter",
+    "#SportsBetting",
+    "#FreePicks",
+    "#GamblingX",
+    "#BettingPicks",
+    "#FadeOrTail",
+    "#LockOfTheDay",
+    "#POTD",
+    "#Parlay",
+    "#Winners"
+]
 
 # File to track posted picks (prevents duplicates)
 POSTED_PICKS_FILE = "posted_picks.json"
 
-# Gemini prompt template
-GEMINI_PROMPT_TEMPLATE = """Generate a sports betting analysis tweet for this pick: {pick}
+# Gemini prompt template (optimized for engaging tweets)
+GEMINI_PROMPT_TEMPLATE = """Generate a viral sports betting tweet for this pick: {pick}
 
 Requirements:
-- Start with a hook using emojis (like fire, chart emojis)
-- Include 3-4 relevant stats, trends, or analysis points
-- Each stat on its own line with an emoji prefix
-- Mention any risk factors with warning emoji
-- Sound confident but analytical
-- Use emojis strategically: fire, chart_down, chart_up, warning, shield, calendar, etc.
-- Keep main analysis under 200 characters per point
-- Make it feel like insider knowledge
+- Start with an attention-grabbing hook using emojis (fire, money bag, lock, etc.)
+- Keep it SHORT and PUNCHY - max 3-4 lines of analysis
+- Sound confident like an insider giving alpha
+- Use power words: LOCK, HAMMER, LOVE, SMASH, FIRE
+- Include 1-2 key stats or trends that support the pick
+- Create FOMO (fear of missing out)
+- DO NOT include hashtags or links - those will be added separately
+- Keep the main content under 180 characters
 
-Format example:
-[Hook with pick and emojis]
+Tone examples:
+- "This line is DISRESPECTFUL"
+- "Vegas is sleeping on this"
+- "Sharps are all over this"
+- "Trust the process"
 
-[Stat 1 with emoji]
-[Stat 2 with emoji]
-[Stat 3 with emoji]
-[Risk factor with warning emoji]
-
-Do NOT include hashtags or the discord link - those will be added separately.
+Format:
+[Emoji hook with the pick]
+[1-2 short analysis points]
+[Confident closer]
 """
 
 # Sport keywords for detection
@@ -74,5 +94,12 @@ SPORT_KEYWORDS = {
             "runs", "hits", "strikeouts", "era", "home runs", "hr"],
     "NHL": ["bruins", "panthers", "rangers", "oilers", "avalanche", "stars",
             "hurricanes", "devils", "knights", "maple leafs", "canucks", "jets",
-            "goals", "saves", "assists", "shots"]
+            "goals", "saves", "assists", "shots"],
+    "NCAAB": ["duke", "kentucky", "kansas", "unc", "north carolina", "gonzaga",
+              "villanova", "ucla", "michigan", "purdue", "college basketball"],
+    "NCAAF": ["alabama", "georgia", "ohio state", "michigan", "clemson", "texas",
+              "usc", "oregon", "lsu", "college football"],
+    "UFC": ["ufc", "mma", "fight", "knockout", "ko", "submission", "decision"],
+    "SOCCER": ["premier league", "epl", "la liga", "serie a", "bundesliga",
+               "champions league", "soccer", "goal", "nil"]
 }

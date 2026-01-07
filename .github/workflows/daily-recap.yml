@@ -1,23 +1,13 @@
-name: Post Picks to Twitter
+name: Daily Recap Tweet
 
 on:
   schedule:
-    # 8:30 AM PST (16:30 UTC)
-    - cron: '30 16 * * *'
-    # 11:00 AM PST (19:00 UTC)
-    - cron: '0 19 * * *'
-    # 2:00 PM PST (22:00 UTC)
-    - cron: '0 22 * * *'
-    # 4:00 PM PST (00:00 UTC next day)
-    - cron: '0 0 * * *'
+    # 10:00 PM PST (06:00 UTC next day)
+    - cron: '0 6 * * *'
 
   # Allow manual trigger
   workflow_dispatch:
     inputs:
-      max_posts:
-        description: 'Maximum posts to make'
-        required: false
-        default: '2'
       dry_run:
         description: 'Dry run (no actual posting)'
         required: false
@@ -25,7 +15,7 @@ on:
         type: boolean
 
 jobs:
-  post-tweets:
+  daily-recap:
     runs-on: ubuntu-latest
 
     steps:
@@ -50,27 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Determine post count
-        id: config
-        run: |
-          HOUR=$(TZ=America/Los_Angeles date +%H)
-          echo "Current hour (PST): $HOUR"
-
-          # Morning (8:30 AM): 2 posts
-          # Midday (11 AM): 2 posts
-          # Afternoon (2 PM): 1-2 posts
-          # Late afternoon (4 PM): 1 post
-          if [ "$HOUR" -ge 8 ] && [ "$HOUR" -lt 10 ]; then
-            echo "max_posts=2" >> $GITHUB_OUTPUT
-          elif [ "$HOUR" -ge 10 ] && [ "$HOUR" -lt 13 ]; then
-            echo "max_posts=2" >> $GITHUB_OUTPUT
-          elif [ "$HOUR" -ge 13 ] && [ "$HOUR" -lt 16 ]; then
-            echo "max_posts=2" >> $GITHUB_OUTPUT
-          else
-            echo "max_posts=1" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run bot
+      - name: Run recap bot
         env:
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
@@ -78,20 +48,22 @@ jobs:
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
-          MAX_POSTS="${{ github.event.inputs.max_posts || steps.config.outputs.max_posts }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
 
           if [ "$DRY_RUN" = "true" ]; then
-            python -m src.main --max-posts $MAX_POSTS --dry-run
+            python -m src.main --recap --dry-run
           else
-            python -m src.main --max-posts $MAX_POSTS
+            python -m src.main --recap
           fi
 
-      - name: Upload posted picks record
+      - name: Upload recap data
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: posted-picks-${{ github.run_id }}
-          path: posted_picks.json
+          name: recap-${{ github.run_id }}
+          path: |
+            posted_picks.json
+            daily_results.json
           retention-days: 30

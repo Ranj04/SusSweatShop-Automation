@@ -13,6 +13,7 @@ from src.discord_fetcher import DiscordFetcher
 from src.ai_writer import AIWriter
 from src.image_fetcher import ImageFetcher
 from src.twitter_poster import TwitterPoster
+from src.recap_generator import RecapGenerator
 
 
 class SusSweatShopBot:
@@ -24,6 +25,7 @@ class SusSweatShopBot:
         self.ai_writer = AIWriter()
         self.image_fetcher = ImageFetcher()
         self.twitter = TwitterPoster()
+        self.recap = RecapGenerator()
 
     def run(self, max_posts: int = 2, dry_run: bool = False) -> int:
         """
@@ -69,13 +71,29 @@ class SusSweatShopBot:
                 tweet_text = self.ai_writer.format_tweet(pick['content'])
                 print(f"Tweet length: {len(tweet_text)} characters")
 
-                # Get image
-                print("Fetching image...")
-                image_path = self.image_fetcher.get_image_for_pick(pick['content'])
+                # Determine image to use
+                image_path = None
+
+                # First, try to use image from Discord message
+                if pick.get("local_image_path"):
+                    print(f"Using Discord image: {pick['local_image_path']}")
+                    image_path = pick["local_image_path"]
+                else:
+                    # Fall back to fetching a relevant image
+                    print("No Discord image, fetching relevant image...")
+                    image_path = self.image_fetcher.get_image_for_pick(pick['content'])
+
                 if image_path:
-                    print(f"Image downloaded: {image_path}")
+                    print(f"Image ready: {image_path}")
                 else:
                     print("No image available, posting without image")
+
+                # Include link in tweet if present
+                if pick.get("links"):
+                    # Add first link to tweet if it fits
+                    first_link = pick["links"][0]
+                    if len(tweet_text) + len(first_link) + 2 <= 280:
+                        tweet_text = f"{tweet_text}\n\n{first_link}"
 
                 if dry_run:
                     print("\n[DRY RUN] Would post tweet:")
@@ -83,6 +101,7 @@ class SusSweatShopBot:
                     print(tweet_text)
                     print("-" * 40)
                     print(f"Image: {image_path}")
+                    print(f"Links from Discord: {pick.get('links', [])}")
                     successful_posts += 1
                 else:
                     # Post to Twitter
@@ -112,22 +131,109 @@ class SusSweatShopBot:
 
         return successful_posts
 
+    def run_recap(self, dry_run: bool = False) -> int:
+        """
+        Run the daily recap posting
+
+        Args:
+            dry_run: If True, don't actually post (for testing)
+
+        Returns:
+            1 if successful, 0 if failed
+        """
+        print(f"\n{'='*50}")
+        print(f"SUSSWEATSHOP Daily Recap - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'='*50}")
+
+        # Verify Twitter credentials first
+        if not dry_run:
+            print("\nVerifying Twitter credentials...")
+            if not self.twitter.verify_credentials():
+                print("ERROR: Twitter authentication failed!")
+                return 0
+
+        try:
+            # Get today's results
+            print("\nFetching today's picks and results...")
+            results = self.recap.get_todays_results()
+
+            print(f"Found {results['total_picks']} picks from today")
+            print(f"  Wins: {results['wins']}")
+            print(f"  Losses: {results['losses']}")
+            print(f"  Pushes: {results['pushes']}")
+            print(f"  Pending: {results['pending']}")
+
+            # Generate recap tweet
+            print("\nGenerating recap tweet...")
+            tweet_text = self.recap.generate_recap_tweet(results)
+            print(f"Tweet length: {len(tweet_text)} characters")
+
+            # Get best image for recap
+            image_path = self.recap.get_best_image_for_recap(results)
+            if image_path:
+                print(f"Using image: {image_path}")
+            else:
+                # Try to get a generic sports image
+                print("No pick image available, using generic image")
+                image_path = self.image_fetcher.get_image_for_pick("sports betting recap")
+
+            if dry_run:
+                print("\n[DRY RUN] Would post recap tweet:")
+                print("-" * 40)
+                print(tweet_text)
+                print("-" * 40)
+                print(f"Image: {image_path}")
+
+                # Show what a thread would look like
+                print("\n[DRY RUN] Full thread would be:")
+                for i, t in enumerate(self.recap.generate_detailed_recap(results)):
+                    print(f"\n--- Tweet {i+1} ---")
+                    print(t)
+
+                return 1
+            else:
+                # Post recap to Twitter
+                print("\nPosting recap to Twitter...")
+                result = self.twitter.post_tweet(tweet_text, image_path)
+
+                if result:
+                    print(f"SUCCESS! Recap tweet ID: {result['id']}")
+                    return 1
+                else:
+                    print("FAILED to post recap tweet")
+                    return 0
+
+        except Exception as e:
+            print(f"ERROR running recap: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
+        finally:
+            # Cleanup
+            print("\nCleaning up temporary files...")
+            self.image_fetcher.cleanup()
+
 
 def get_time_slot() -> str:
     """
     Determine current time slot for logging
 
     Returns:
-        Time slot string (morning, midday, evening)
+        Time slot string (morning, midday, evening, etc.)
     """
     hour = datetime.now().hour
 
-    if 8 <= hour < 11:
-        return "morning"
-    elif 11 <= hour < 14:
-        return "midday"
-    elif 16 <= hour < 19:
-        return "evening"
+    if 8 <= hour < 10:
+        return "morning (8:30 AM)"
+    elif 10 <= hour < 12:
+        return "late-morning (11 AM)"
+    elif 12 <= hour < 15:
+        return "afternoon (2 PM)"
+    elif 15 <= hour < 17:
+        return "late-afternoon (4 PM)"
+    elif 21 <= hour < 23:
+        return "evening recap (10 PM)"
     else:
         return "off-hours"
 
@@ -151,10 +257,16 @@ def main():
         action='store_true',
         help='Only verify credentials, don\'t post'
     )
+    parser.add_argument(
+        '--recap',
+        action='store_true',
+        help='Run daily recap instead of regular posts'
+    )
 
     args = parser.parse_args()
 
     print(f"Time slot: {get_time_slot()}")
+    print(f"Mode: {'Recap' if args.recap else 'Regular Posts'}")
     print(f"Max posts: {args.max_posts}")
     print(f"Dry run: {args.dry_run}")
 
@@ -175,6 +287,9 @@ def main():
             print(f"Discord: OK ({len(messages)} messages)")
             picks = bot.discord.extract_picks(messages)
             print(f"  Picks found: {len(picks)}")
+            for pick in picks[:2]:
+                print(f"    - {pick['content'][:50]}...")
+                print(f"      Images: {len(pick.get('images', []))}, Links: {len(pick.get('links', []))}")
         else:
             print("Discord: FAILED or empty")
 
@@ -192,7 +307,11 @@ def main():
 
     # Run the bot
     bot = SusSweatShopBot()
-    successful = bot.run(max_posts=args.max_posts, dry_run=args.dry_run)
+
+    if args.recap:
+        successful = bot.run_recap(dry_run=args.dry_run)
+    else:
+        successful = bot.run(max_posts=args.max_posts, dry_run=args.dry_run)
 
     # Return non-zero exit code if no posts were made (for CI/CD)
     return 0 if successful > 0 or args.dry_run else 1
