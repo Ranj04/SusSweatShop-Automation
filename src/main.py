@@ -66,34 +66,54 @@ class SusSweatShopBot:
             print(f"Pick: {pick['content'][:100]}...")
 
             try:
-                # Generate AI analysis
-                print("Generating AI analysis...")
-                tweet_text = self.ai_writer.format_tweet(pick['content'])
-                print(f"Tweet length: {len(tweet_text)} characters")
+                # Extract slip link (PrizePicks, Underdog, etc.)
+                slip_link = None
+                slip_domains = ['prizepicks', 'underdogfantasy', 'sleeper', 'betslip']
+                for link in pick.get("links", []):
+                    if any(domain in link.lower() for domain in slip_domains):
+                        slip_link = link
+                        break
 
-                # Determine image to use
+                # Determine image to use (slip screenshot)
                 image_path = None
+                slip_info = None
 
-                # First, try to use image from Discord message
+                # First, try to use image from Discord message (actual attachments only)
                 if pick.get("local_image_path"):
-                    print(f"Using Discord image: {pick['local_image_path']}")
-                    image_path = pick["local_image_path"]
-                else:
-                    # Fall back to fetching a relevant image
-                    print("No Discord image, fetching relevant image...")
+                    # Check if it's an actual attachment, not an embed preview
+                    if pick.get("images") and any(img.get("filename") and not img.get("filename").startswith("embed") for img in pick["images"]):
+                        print(f"Using Discord slip image: {pick['local_image_path']}")
+                        image_path = pick["local_image_path"]
+
+                        # Analyze the slip image with Gemini Vision
+                        print("Analyzing slip image with Gemini Vision...")
+                        slip_info = self.ai_writer.analyze_slip_image(image_path)
+                        if slip_info and slip_info.get("player") or slip_info.get("line"):
+                            print(f"Extracted from slip: {slip_info.get('player', 'N/A')} - {slip_info.get('line', 'N/A')}")
+                    else:
+                        print("Skipping embed preview image")
+
+                # Fall back to fetching a relevant image if no attachment
+                if not image_path:
+                    print("No Discord attachment, fetching relevant image...")
                     image_path = self.image_fetcher.get_image_for_pick(pick['content'])
+
+                # Generate AI analysis - use slip_info if we analyzed an image
+                print("Generating AI tweet...")
+                if slip_info:
+                    tweet_text = self.ai_writer.format_tweet(
+                        pick=pick['content'],
+                        slip_link=slip_link,
+                        slip_info=slip_info
+                    )
+                else:
+                    tweet_text = self.ai_writer.format_tweet(pick['content'], slip_link=slip_link)
+                print(f"Tweet length: {len(tweet_text)} characters")
 
                 if image_path:
                     print(f"Image ready: {image_path}")
                 else:
                     print("No image available, posting without image")
-
-                # Include link in tweet if present
-                if pick.get("links"):
-                    # Add first link to tweet if it fits
-                    first_link = pick["links"][0]
-                    if len(tweet_text) + len(first_link) + 2 <= 280:
-                        tweet_text = f"{tweet_text}\n\n{first_link}"
 
                 if dry_run:
                     print("\n[DRY RUN] Would post tweet:")

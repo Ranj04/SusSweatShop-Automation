@@ -9,3 +9,6 @@ google-generativeai>=0.3.0
 
 # Environment variables
 python-dotenv>=1.0.0
+
+# Image processing for slip analysis
+Pillow>=10.0.0
