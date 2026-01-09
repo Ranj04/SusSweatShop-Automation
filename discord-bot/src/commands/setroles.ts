@@ -11,52 +11,80 @@ export const setrolesCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('setroles')
     .setDescription('Configure roles for the bot')
-    .addRoleOption((option) =>
+    .addStringOption((option) =>
       option
         .setName('member')
-        .setDescription('Role given after introduction')
+        .setDescription('Role ID given after introduction')
         .setRequired(false)
     )
-    .addRoleOption((option) =>
+    .addStringOption((option) =>
       option
         .setName('premium')
-        .setDescription('Role for premium subscribers')
+        .setDescription('Role ID for premium subscribers')
         .setRequired(false)
     )
-    .addRoleOption((option) =>
+    .addStringOption((option) =>
       option
         .setName('topcontributor')
-        .setDescription('Role for weekly top contributor')
+        .setDescription('Role ID for weekly top contributor')
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as SlashCommandBuilder,
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    const memberRole = interaction.options.getRole('member');
-    const premiumRole = interaction.options.getRole('premium');
-    const topContributorRole = interaction.options.getRole('topcontributor');
+    const memberRoleId = interaction.options.getString('member');
+    const premiumRoleId = interaction.options.getString('premium');
+    const topContributorRoleId = interaction.options.getString('topcontributor');
 
     const updates: string[] = [];
+    const guild = interaction.guild;
 
     try {
-      if (memberRole) {
-        settingsRepo.set('memberRoleId', memberRole.id);
-        updates.push(`Member role: ${memberRole.name}`);
+      if (memberRoleId) {
+        // Validate the role exists
+        const role = guild?.roles.cache.get(memberRoleId);
+        if (!role) {
+          await interaction.reply({
+            content: `❌ Member role with ID \`${memberRoleId}\` not found.`,
+            ephemeral: true,
+          });
+          return;
+        }
+        settingsRepo.set('memberRoleId', memberRoleId);
+        updates.push(`Member role: ${role.name} (${memberRoleId})`);
       }
 
-      if (premiumRole) {
-        settingsRepo.set('premiumRoleId', premiumRole.id);
-        updates.push(`Premium role: ${premiumRole.name}`);
+      if (premiumRoleId) {
+        // Validate the role exists
+        const role = guild?.roles.cache.get(premiumRoleId);
+        if (!role) {
+          await interaction.reply({
+            content: `❌ Premium role with ID \`${premiumRoleId}\` not found.`,
+            ephemeral: true,
+          });
+          return;
+        }
+        settingsRepo.set('premiumRoleId', premiumRoleId);
+        updates.push(`Premium role: ${role.name} (${premiumRoleId})`);
       }
 
-      if (topContributorRole) {
-        settingsRepo.set('topContributorRoleId', topContributorRole.id);
-        updates.push(`Top Contributor role: ${topContributorRole.name}`);
+      if (topContributorRoleId) {
+        // Validate the role exists
+        const role = guild?.roles.cache.get(topContributorRoleId);
+        if (!role) {
+          await interaction.reply({
+            content: `❌ Top Contributor role with ID \`${topContributorRoleId}\` not found.`,
+            ephemeral: true,
+          });
+          return;
+        }
+        settingsRepo.set('topContributorRoleId', topContributorRoleId);
+        updates.push(`Top Contributor role: ${role.name} (${topContributorRoleId})`);
       }
 
       if (updates.length === 0) {
         await interaction.reply({
-          content: '⚠️ No roles specified. Use the options to configure roles.',
+          content: '⚠️ No roles specified. Use the options to configure roles.\n\nExample: `/setroles premium:1435517958704201849`',
           ephemeral: true,
         });
         return;
