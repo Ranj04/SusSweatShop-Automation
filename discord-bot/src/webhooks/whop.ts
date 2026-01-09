@@ -45,6 +45,15 @@ export function setDiscordClient(client: Client): void {
 export function createWhopRouter(): Router {
   const router = Router();
 
+  // GET handler for Whop webhook verification
+  router.get('/whop', (req: Request, res: Response) => {
+    logger.info('Whop webhook verification request received');
+    res.status(200).json({
+      status: 'ok',
+      message: 'SUSSWEATSHOP Whop webhook endpoint is ready'
+    });
+  });
+
   router.post('/whop', express.json(), async (req: Request, res: Response) => {
     try {
       // Verify webhook signature
