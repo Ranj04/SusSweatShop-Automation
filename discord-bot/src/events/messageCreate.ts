@@ -95,28 +95,39 @@ async function handleTwitterAutoPost(message: Message): Promise<void> {
   if (message.channel.id !== picksChannelId) return;
 
   // Check if message has both a link AND an image
-  const { hasLink, hasImage, link } = hasLinkAndImage(message);
+  const { hasLink, hasImage, link, imageUrl } = hasLinkAndImage(message);
+
+  logger.info(`Checking message ${message.id} - hasLink: ${hasLink}, hasImage: ${hasImage}`);
 
   if (!hasLink || !hasImage) {
-    logger.debug(`Skipping Twitter post - hasLink: ${hasLink}, hasImage: ${hasImage}`);
+    logger.info(`Skipping Twitter post - needs both link AND image attachment`);
     return;
   }
 
-  logger.info(`Pick detected with link + image from ${message.author.tag}: ${link}`);
+  logger.info(`Pick detected with link + image from ${message.author.tag}`);
+  logger.info(`Link: ${link}`);
+  logger.info(`Image: ${imageUrl}`);
 
   try {
-    // Small delay to let Discord process the message
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Small delay to let Discord fully process the message
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Trigger the Python Twitter posting script
+    // Post to Twitter
     const success = await postToTwitter(message);
 
     if (success) {
       // React to show it was posted
       await message.react('🐦');
-      logger.info(`Auto-posted to Twitter for message ${message.id}`);
+      logger.info(`Successfully posted to Twitter for message ${message.id}`);
+    } else {
+      // React with X to show it failed
+      await message.react('❌');
+      logger.error(`Failed to post to Twitter for message ${message.id}`);
     }
   } catch (error) {
     logger.error('Error in Twitter auto-post', error);
+    try {
+      await message.react('❌');
+    } catch {}
   }
 }

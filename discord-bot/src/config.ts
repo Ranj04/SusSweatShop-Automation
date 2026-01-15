@@ -9,6 +9,14 @@ export const config = {
     guildId: process.env.DISCORD_GUILD_ID!,
   },
 
+  // Twitter
+  twitter: {
+    apiKey: process.env.TWITTER_API_KEY || '',
+    apiSecret: process.env.TWITTER_API_SECRET || '',
+    accessToken: process.env.TWITTER_ACCESS_TOKEN || '',
+    accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET || '',
+  },
+
   // Whop
   whop: {
     webhookSecret: process.env.WHOP_WEBHOOK_SECRET || '',
@@ -18,6 +26,12 @@ export const config = {
   // Gemini AI
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
+  },
+
+  // Promo links
+  promo: {
+    discordInvite: process.env.DISCORD_INVITE_LINK || 'discord.gg/ZNwbqrCGqN',
+    website: process.env.WEBSITE_URL || 'https://sussweatshop.com',
   },
 
   // Server

@@ -120,6 +120,73 @@ function generateFallbackSummary(data: RecapData): string {
 /**
  * Generate a hype message for a big winning day
  */
+/**
+ * Generate a human-like tweet from a betting slip/pick
+ */
+export async function generateTweetFromSlip(
+  messageContent: string,
+  slipLink: string | null
+): Promise<string> {
+  const client = getClient();
+
+  if (!client) {
+    return generateFallbackTweet(messageContent);
+  }
+
+  try {
+    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const prompt = `Write a short, casual sports betting tweet about this pick:
+
+Message: ${messageContent}
+${slipLink ? `Link: ${slipLink}` : ''}
+
+IMPORTANT - Sound like a real person, NOT a bot:
+- Write like you're texting a friend about a bet you like
+- NO excessive emojis (0-1 max)
+- NO ALL CAPS words like "LOCK" "HAMMER" "SMASH" "FIRE"
+- NO cliche phrases like "trust the process" or "let's eat"
+- Be conversational and natural
+- Keep it brief (1-2 sentences max, under 100 characters)
+- DO NOT include hashtags or links (those are added separately)
+
+Good examples:
+"Really like Curry over 25.5 tonight. He's been cooking lately."
+"Taking the Chiefs here. Mahomes at home is just different."
+"Jokic triple double feels right at +180."
+
+Bad examples (avoid):
+"🔥🔥 LOCK OF THE DAY 🔥🔥"
+"💰 SHARP MONEY ALERT 💰"`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+
+    // Clean up any unwanted elements
+    text = text.replace(/"/g, '').replace(/#\w+/g, '').replace(/https?:\/\/\S+/g, '').trim();
+
+    if (text.length < 10 || text.length > 150) {
+      return generateFallbackTweet(messageContent);
+    }
+
+    return text;
+
+  } catch (error) {
+    logger.error('Error generating tweet from slip', error);
+    return generateFallbackTweet(messageContent);
+  }
+}
+
+function generateFallbackTweet(content: string): string {
+  const openers = [
+    'Like this one today.',
+    'Got one I like here.',
+    'Feeling good about this.',
+    'This one looks solid.',
+  ];
+  return openers[Math.floor(Math.random() * openers.length)];
+}
+
 export async function generateBigWinMessage(
   profit: number,
   record: string,

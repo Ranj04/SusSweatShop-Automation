@@ -1,7 +1,12 @@
 import { Message, Attachment } from 'discord.js';
-import { spawn } from 'child_process';
+import { TwitterApi } from 'twitter-api-v2';
+import axios from 'axios';
+import { config } from '../config';
 import { logger } from '../utils/logger';
-import path from 'path';
+import { generateTweetFromSlip } from './gemini';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // Betting slip domains to look for
 const SLIP_DOMAINS = ['prizepicks', 'underdogfantasy', 'sleeper', 'betslip', 'draftkings', 'fanduel'];
@@ -9,12 +14,29 @@ const SLIP_DOMAINS = ['prizepicks', 'underdogfantasy', 'sleeper', 'betslip', 'dr
 // URL regex pattern
 const URL_PATTERN = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
 
+// Initialize Twitter client
+function getTwitterClient(): TwitterApi | null {
+  const { apiKey, apiSecret, accessToken, accessTokenSecret } = config.twitter;
+
+  if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
+    logger.warn('Twitter credentials not configured');
+    return null;
+  }
+
+  return new TwitterApi({
+    appKey: apiKey,
+    appSecret: apiSecret,
+    accessToken: accessToken,
+    accessSecret: accessTokenSecret,
+  });
+}
+
 /**
  * Check if a message has both a link and an image attachment
  */
-export function hasLinkAndImage(message: Message): { hasLink: boolean; hasImage: boolean; link: string | null } {
-  // Check for image attachments
-  const hasImage = message.attachments.some((att: Attachment) =>
+export function hasLinkAndImage(message: Message): { hasLink: boolean; hasImage: boolean; link: string | null; imageUrl: string | null } {
+  // Check for image attachments (actual uploads, not embeds)
+  const imageAttachment = message.attachments.find((att: Attachment) =>
     att.contentType?.startsWith('image/') || false
   );
 
@@ -26,65 +48,151 @@ export function hasLinkAndImage(message: Message): { hasLink: boolean; hasImage:
 
   return {
     hasLink: links.length > 0,
-    hasImage,
+    hasImage: !!imageAttachment,
     link: slipLink,
+    imageUrl: imageAttachment?.url || null,
   };
 }
 
 /**
- * Trigger Twitter posting for a Discord message
- * Calls the Python script to handle the actual posting
+ * Download an image from URL to a temporary file
+ */
+async function downloadImage(url: string): Promise<string | null> {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const tempDir = os.tmpdir();
+    const fileName = `twitter_upload_${Date.now()}.png`;
+    const filePath = path.join(tempDir, fileName);
+
+    fs.writeFileSync(filePath, response.data);
+    return filePath;
+  } catch (error) {
+    logger.error('Failed to download image', error);
+    return null;
+  }
+}
+
+/**
+ * Clean up temporary file
+ */
+function cleanupTempFile(filePath: string): void {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    logger.warn('Failed to cleanup temp file', error);
+  }
+}
+
+/**
+ * Generate hashtags based on content
+ */
+function getHashtags(content: string): string {
+  const contentLower = content.toLowerCase();
+
+  if (contentLower.includes('nba') || contentLower.includes('points') || contentLower.includes('rebounds')) {
+    return '#NBA #NBABets';
+  } else if (contentLower.includes('nfl') || contentLower.includes('touchdown')) {
+    return '#NFL #NFLBets';
+  } else if (contentLower.includes('mlb') || contentLower.includes('runs')) {
+    return '#MLB #MLBBets';
+  } else if (contentLower.includes('nhl') || contentLower.includes('goals')) {
+    return '#NHL #NHLBets';
+  }
+
+  return '#SportsBetting #FreePicks';
+}
+
+/**
+ * Format the full tweet with promo and hashtags
+ */
+function formatTweet(tweetContent: string, slipLink: string | null, messageContent: string): string {
+  const hashtags = getHashtags(messageContent);
+  const promo = `More picks: ${config.promo.discordInvite}`;
+
+  let tweet = tweetContent;
+
+  // Add slip link if available
+  if (slipLink) {
+    tweet += `\n\n${slipLink}`;
+  }
+
+  // Add promo and hashtags
+  tweet += `\n\n${promo}\n\n${hashtags}`;
+
+  // Trim if over 280 characters
+  if (tweet.length > 280) {
+    const maxContentLen = 280 - promo.length - hashtags.length - 10;
+    tweet = tweetContent.substring(0, maxContentLen) + '...';
+    tweet += `\n\n${promo}\n\n${hashtags}`;
+  }
+
+  return tweet.substring(0, 280);
+}
+
+/**
+ * Post a tweet with optional image
  */
 export async function postToTwitter(message: Message): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      // Path to the Python script (relative to discord-bot folder)
-      const scriptPath = path.resolve(__dirname, '../../../src/main.py');
+  const client = getTwitterClient();
 
-      logger.info(`Triggering Twitter post for message ${message.id}`);
+  if (!client) {
+    logger.error('Twitter client not available');
+    return false;
+  }
 
-      // Spawn Python process
-      const python = spawn('python', [scriptPath, '--max-posts', '1'], {
-        cwd: path.resolve(__dirname, '../../../'),
-        env: process.env,
-      });
+  const { link, imageUrl } = hasLinkAndImage(message);
+  let tempFilePath: string | null = null;
 
-      let output = '';
-      let errorOutput = '';
+  try {
+    logger.info(`Processing Twitter post for message ${message.id}`);
 
-      python.stdout.on('data', (data) => {
-        output += data.toString();
-      });
+    // Generate tweet content using Gemini
+    let tweetContent = await generateTweetFromSlip(message.content, link);
 
-      python.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
+    // Format the full tweet
+    const fullTweet = formatTweet(tweetContent, link, message.content);
 
-      python.on('close', (code) => {
-        if (code === 0) {
-          logger.info(`Twitter post successful: ${output.slice(-200)}`);
-          resolve(true);
-        } else {
-          logger.error(`Twitter post failed (code ${code}): ${errorOutput}`);
-          resolve(false);
-        }
-      });
+    logger.info(`Generated tweet: ${fullTweet}`);
 
-      python.on('error', (err) => {
-        logger.error('Failed to spawn Python process', err);
-        resolve(false);
-      });
+    // Upload image if available
+    let mediaId: string | undefined;
 
-      // Timeout after 60 seconds
-      setTimeout(() => {
-        python.kill();
-        logger.warn('Twitter post timed out');
-        resolve(false);
-      }, 60000);
+    if (imageUrl) {
+      logger.info('Downloading image for upload...');
+      tempFilePath = await downloadImage(imageUrl);
 
-    } catch (error) {
-      logger.error('Error triggering Twitter post', error);
-      resolve(false);
+      if (tempFilePath) {
+        logger.info('Uploading image to Twitter...');
+        mediaId = await client.v1.uploadMedia(tempFilePath);
+        logger.info(`Image uploaded, media ID: ${mediaId}`);
+      }
     }
-  });
+
+    // Post the tweet
+    logger.info('Posting tweet...');
+
+    let result;
+    if (mediaId) {
+      result = await client.v2.tweet({
+        text: fullTweet,
+        media: { media_ids: [mediaId] as [string] },
+      });
+    } else {
+      result = await client.v2.tweet(fullTweet);
+    }
+
+    logger.info(`Tweet posted successfully! ID: ${result.data.id}`);
+    return true;
+
+  } catch (error) {
+    logger.error('Error posting to Twitter', error);
+    return false;
+  } finally {
+    // Cleanup temp file
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+    }
+  }
 }
