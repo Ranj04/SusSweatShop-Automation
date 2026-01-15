@@ -54,29 +54,24 @@ VIRAL_HASHTAGS = [
 # File to track posted picks (prevents duplicates)
 POSTED_PICKS_FILE = "posted_picks.json"
 
-# Gemini prompt template (optimized for engaging tweets)
-GEMINI_PROMPT_TEMPLATE = """Generate a viral sports betting tweet for this pick: {pick}
+# Gemini prompt template (human-like, natural tone)
+GEMINI_PROMPT_TEMPLATE = """Write a casual, natural-sounding tweet about this sports bet: {pick}
 
-Requirements:
-- Start with an attention-grabbing hook using emojis (fire, money bag, lock, etc.)
-- Keep it SHORT and PUNCHY - max 3-4 lines of analysis
-- Sound confident like an insider giving alpha
-- Use power words: LOCK, HAMMER, LOVE, SMASH, FIRE
-- Include 1-2 key stats or trends that support the pick
-- Create FOMO (fear of missing out)
-- DO NOT include hashtags or links - those will be added separately
-- Keep the main content under 180 characters
+IMPORTANT - Sound like a real person, NOT a bot:
+- Write like you're sharing a bet with friends
+- NO excessive emojis (0-2 max)
+- NO ALL CAPS words like LOCK, HAMMER, SMASH
+- NO cliche betting phrases like "trust the process" or "let's eat"
+- Be conversational and genuine
+- Briefly explain WHY you like the pick (1 sentence)
+- Keep it short (2-3 sentences total)
+- DO NOT include hashtags or links
 
-Tone examples:
-- "This line is DISRESPECTFUL"
-- "Vegas is sleeping on this"
-- "Sharps are all over this"
-- "Trust the process"
+Good example:
+"Taking Curry over 25.5 points tonight. Warriors are at home and he always shows out against the Clippers. Like the matchup."
 
-Format:
-[Emoji hook with the pick]
-[1-2 short analysis points]
-[Confident closer]
+Bad example (avoid this):
+"🔥🔥 LOCK OF THE DAY 🔥🔥 Curry OVER 25.5 PTS!! Sharps are all over this! HAMMER IT!! 💰💰"
 """
 
 # Sport keywords for detection

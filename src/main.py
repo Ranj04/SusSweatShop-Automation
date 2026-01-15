@@ -14,6 +14,7 @@ from src.ai_writer import AIWriter
 from src.image_fetcher import ImageFetcher
 from src.twitter_poster import TwitterPoster
 from src.recap_generator import RecapGenerator
+from src.daily_summary import DailySummaryGenerator
 
 
 class SusSweatShopBot:
@@ -26,6 +27,7 @@ class SusSweatShopBot:
         self.image_fetcher = ImageFetcher()
         self.twitter = TwitterPoster()
         self.recap = RecapGenerator()
+        self.daily_summary = DailySummaryGenerator()
 
     def run(self, max_posts: int = 2, dry_run: bool = False) -> int:
         """
@@ -234,28 +236,29 @@ class SusSweatShopBot:
             print("\nCleaning up temporary files...")
             self.image_fetcher.cleanup()
 
+    def run_daily_summary(self, dry_run: bool = False) -> int:
+        """
+        Run the 10 PM daily summary posting
 
-def get_time_slot() -> str:
-    """
-    Determine current time slot for logging
+        Args:
+            dry_run: If True, don't actually post (for testing)
 
-    Returns:
-        Time slot string (morning, midday, evening, etc.)
-    """
-    hour = datetime.now().hour
+        Returns:
+            1 if successful, 0 if failed
+        """
+        print(f"\n{'='*50}")
+        print(f"SUSSWEATSHOP Daily Summary - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'='*50}")
 
-    if 8 <= hour < 10:
-        return "morning (8:30 AM)"
-    elif 10 <= hour < 12:
-        return "late-morning (11 AM)"
-    elif 12 <= hour < 15:
-        return "afternoon (2 PM)"
-    elif 15 <= hour < 17:
-        return "late-afternoon (4 PM)"
-    elif 21 <= hour < 23:
-        return "evening recap (10 PM)"
-    else:
-        return "off-hours"
+        try:
+            success = self.daily_summary.post_daily_summary(dry_run=dry_run)
+            return 1 if success else 0
+
+        except Exception as e:
+            print(f"ERROR running daily summary: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
 
 
 def main():
@@ -282,12 +285,16 @@ def main():
         action='store_true',
         help='Run daily recap instead of regular posts'
     )
+    parser.add_argument(
+        '--daily-summary',
+        action='store_true',
+        help='Run 10 PM daily summary (end of day wrap-up)'
+    )
 
     args = parser.parse_args()
 
-    print(f"Time slot: {get_time_slot()}")
-    print(f"Mode: {'Recap' if args.recap else 'Regular Posts'}")
-    print(f"Max posts: {args.max_posts}")
+    mode = "Daily Summary" if args.daily_summary else ("Recap" if args.recap else "Regular Posts")
+    print(f"Mode: {mode}")
     print(f"Dry run: {args.dry_run}")
 
     if args.verify_only:
@@ -328,7 +335,9 @@ def main():
     # Run the bot
     bot = SusSweatShopBot()
 
-    if args.recap:
+    if args.daily_summary:
+        successful = bot.run_daily_summary(dry_run=args.dry_run)
+    elif args.recap:
         successful = bot.run_recap(dry_run=args.dry_run)
     else:
         successful = bot.run(max_posts=args.max_posts, dry_run=args.dry_run)

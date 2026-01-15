@@ -34,34 +34,30 @@ ODDS: [The odds if visible, e.g., "-110" or "+150"]
 Be concise and accurate. If multiple legs in a parlay, list the main one or summarize as "X-leg parlay".
 """
 
-TWEET_FROM_SLIP_PROMPT = """Generate a viral sports betting tweet based on this betting slip analysis:
+TWEET_FROM_SLIP_PROMPT = """Write a short, casual sports betting tweet about this pick:
 
 {slip_info}
 
-Requirements:
-- Start with an attention-grabbing hook using emojis (🔥💰🎯⚡🔒)
-- Keep it SHORT and PUNCHY - max 3-4 lines
-- Sound confident like a sports betting insider
-- Use power words: LOCK, HAMMER, LOVE, SMASH, FIRE
-- Include the specific pick details (player/team, line)
-- Create urgency/FOMO
-- DO NOT include hashtags or links - those will be added separately
-- Keep under 150 characters
+IMPORTANT - Sound like a real person, NOT a bot:
+- Write like you're texting a friend about a bet you like
+- NO excessive emojis (1-2 max, or none)
+- NO ALL CAPS words like "LOCK" "HAMMER" "SMASH" "FIRE"
+- NO cliche phrases like "trust the process" or "let's eat"
+- Be conversational and natural
+- Include the pick details naturally
+- Keep it brief (2-3 sentences max)
+- DO NOT include hashtags or links
 
-Example outputs:
-"🔥 HAMMER TIME 🔥
+Good examples (natural, human):
+"Really like Tatum over 27.5 tonight. He's been cooking lately and the Nets can't guard anyone."
 
-LeBron OVER 25.5 PTS
+"Taking the Chiefs -3 here. Mahomes at home in primetime is just different."
 
-King James is on a tear - 30+ in 4 straight 👑
+"Jokic triple double feels like free money at +180. He's averaging one per game this month."
 
-Lock it in! 🔒"
-
-"💰 SHARP MONEY ALERT 💰
-
-Chiefs ML vs Ravens
-
-Patrick Mahomes at home? Easy money 💵"
+Bad examples (bot-like, avoid these):
+"🔥🔥 LOCK OF THE DAY 🔥🔥 HAMMER THIS NOW!!!"
+"💰 SHARP MONEY ALERT 💰 Trust the process!"
 """
 
 
@@ -176,9 +172,21 @@ class AIWriter:
             return self._fallback_from_slip(slip_info)
 
     def _fallback_from_slip(self, slip_info: dict) -> str:
-        """Generate fallback tweet from slip info"""
-        hooks = ["🔥 LOCK OF THE DAY 🔥", "💰 MONEY PLAY 💰", "🎯 TODAY'S PICK 🎯", "⚡ HAMMER THIS ⚡"]
-        closers = ["Let's eat! 💪", "Book it! ✅", "Trust the process 📈", "Easy money 💵"]
+        """Generate fallback tweet from slip info - human-like, casual tone"""
+        openers = [
+            "Really like",
+            "Going with",
+            "Taking",
+            "Feeling good about",
+            "Riding with",
+        ]
+        closers = [
+            "Let's see how it plays out.",
+            "Like the value here.",
+            "Numbers look good on this one.",
+            "Feeling confident about this.",
+            "",  # Sometimes no closer is more natural
+        ]
 
         # Build pick description
         pick_parts = []
@@ -189,9 +197,15 @@ class AIWriter:
         elif slip_info.get("team"):
             pick_parts.append(slip_info["team"])
 
-        pick_text = " ".join(pick_parts) if pick_parts else "Check the slip 👇"
+        pick_text = " ".join(pick_parts) if pick_parts else "this play"
 
-        return f"{random.choice(hooks)}\n\n{pick_text}\n\n{random.choice(closers)}"
+        opener = random.choice(openers)
+        closer = random.choice(closers)
+
+        if closer:
+            return f"{opener} {pick_text}. {closer}"
+        else:
+            return f"{opener} {pick_text} tonight."
 
     def detect_sport(self, pick: str) -> str:
         """Detect which sport the pick is for based on keywords"""
@@ -231,43 +245,58 @@ class AIWriter:
             return self._fallback_analysis(pick)
 
     def _fallback_analysis(self, pick: str) -> str:
-        """Generate a simple fallback analysis if AI fails"""
+        """Generate a simple fallback analysis if AI fails - human-like tone"""
         clean_pick = self.clean_pick_content(pick)
 
-        hooks = ["🔥 LOCK OF THE DAY 🔥", "💰 MONEY PLAY 💰", "🎯 SHARP ACTION 🎯", "⚡ TODAY'S PICK ⚡", "🔒 HAMMER THIS 🔒"]
-        closers = ["Let's eat! 💪", "Trust the process 📈", "Easy money 💵", "Book it! ✅", "Tail or fade? 🎲"]
+        openers = [
+            "Like this one today -",
+            "Going with",
+            "Taking",
+            "Playing",
+            "Riding",
+        ]
+        closers = [
+            "Let's see how it goes.",
+            "Like what I'm seeing here.",
+            "Good spot for this.",
+            "Value looks right.",
+            "",
+        ]
+
+        opener = random.choice(openers)
+        closer = random.choice(closers)
 
         if clean_pick and len(clean_pick) > 5:
-            return f"{random.choice(hooks)}\n\n{clean_pick}\n\n{random.choice(closers)}"
+            if closer:
+                return f"{opener} {clean_pick}. {closer}"
+            else:
+                return f"{opener} {clean_pick}."
         else:
-            return f"{random.choice(hooks)}\n\nCheck the slip below 👇\n\n{random.choice(closers)}"
+            return "Got one I like today. Check out the slip."
 
     def get_hashtags(self, sport: str) -> str:
-        """Get optimized hashtags for a sport (deduplicated)"""
-        sport_tags = HASHTAGS.get(sport, HASHTAGS["default"])
-        existing = set(tag.lower() for tag in sport_tags.split())
+        """Get hashtags for a sport - fewer tags looks more natural"""
+        sport_tags = HASHTAGS.get(sport, HASHTAGS["default"]).split()
 
-        viral_to_add = []
-        for tag in random.sample(VIRAL_HASHTAGS, min(3, len(VIRAL_HASHTAGS))):
-            if tag.lower() not in existing:
-                viral_to_add.append(tag)
-                existing.add(tag.lower())
-            if len(viral_to_add) >= 2:
-                break
+        # Use only 2-3 hashtags max to look more human
+        selected_tags = sport_tags[:2]
 
-        all_tags = sport_tags.split()[:4]
-        all_tags.extend(viral_to_add)
+        # Sometimes add one viral hashtag
+        if random.random() > 0.5 and VIRAL_HASHTAGS:
+            viral_tag = random.choice(VIRAL_HASHTAGS)
+            if viral_tag.lower() not in [t.lower() for t in selected_tags]:
+                selected_tags.append(viral_tag)
 
-        return ' '.join(all_tags)
+        return ' '.join(selected_tags[:3])
 
     def get_promo_text(self) -> str:
-        """Get promotional text for Discord and website"""
+        """Get promotional text for Discord and website - cleaner, less spammy"""
         promos = [
-            f"🎯 {WEBSITE_URL}\n💬 {DISCORD_INVITE_LINK}",
-            f"📊 Free picks: {DISCORD_INVITE_LINK}\n🌐 {WEBSITE_URL}",
-            f"💰 Join winners: {DISCORD_INVITE_LINK}\n🔥 {WEBSITE_URL}",
-            f"🏆 FREE picks daily\n💬 {DISCORD_INVITE_LINK}",
-            f"⚡ More picks: {WEBSITE_URL}\n📱 {DISCORD_INVITE_LINK}",
+            f"More picks: {DISCORD_INVITE_LINK}",
+            f"Free daily picks: {DISCORD_INVITE_LINK}",
+            f"Join for more: {DISCORD_INVITE_LINK}",
+            f"{WEBSITE_URL}",
+            f"All picks: {DISCORD_INVITE_LINK}",
         ]
         return random.choice(promos)
 
@@ -304,8 +333,8 @@ class AIWriter:
             analysis = self.generate_analysis(pick)
             sport = self.detect_sport(pick)
         elif not analysis:
-            # Nothing to work with
-            analysis = "🔥 TODAY'S PICK 🔥\n\nCheck the slip below 👇\n\nLet's get it! 💪"
+            # Nothing to work with - keep it simple and human
+            analysis = "Got one I like today. Check out the slip."
 
         # Get hashtags and promo
         hashtags = self.get_hashtags(sport)
@@ -330,8 +359,8 @@ class AIWriter:
 
     def _trim_tweet(self, analysis: str, promo: str, hashtags: str, slip_link: str = None) -> str:
         """Trim tweet to fit character limit"""
-        short_hashtags = "#SportsBetting #FreePicks #SUSSWEATSHOP"
-        short_promo = f"🎯 {DISCORD_INVITE_LINK}"
+        short_hashtags = "#SportsBetting #FreePicks"
+        short_promo = f"{DISCORD_INVITE_LINK}"
 
         reserved = len(short_promo) + len(short_hashtags) + 6
         if slip_link:
@@ -343,11 +372,11 @@ class AIWriter:
             analysis = analysis[:max_analysis_len]
             if ' ' in analysis:
                 analysis = analysis.rsplit(' ', 1)[0]
-            if not analysis.endswith(('!', '.', '?', '💪', '🔥', '💰')):
+            if not analysis.endswith(('!', '.', '?')):
                 analysis += "..."
 
         if slip_link:
-            tweet = f"{analysis}\n\n🎟️ {slip_link}\n\n{short_promo}\n\n{short_hashtags}"
+            tweet = f"{analysis}\n\n{slip_link}\n\n{short_promo}\n\n{short_hashtags}"
         else:
             tweet = f"{analysis}\n\n{short_promo}\n\n{short_hashtags}"
 
@@ -357,33 +386,42 @@ class AIWriter:
         return tweet[:280]
 
     def format_recap_tweet(self, record: str, win_rate: str, performance: str) -> str:
-        """Format a recap tweet"""
-        emojis = "🔥" if "winning" in performance.lower() else "📊"
+        """Format a recap tweet - natural, human-like tone"""
+        # Determine tone based on performance
+        is_winning = "winning" in performance.lower() or "win" in performance.lower()
+
+        if is_winning:
+            openers = [
+                f"Solid day - went {record}.",
+                f"Good one today, {record}.",
+                f"Nice day at {record}.",
+            ]
+        else:
+            openers = [
+                f"Tough day - {record}.",
+                f"Went {record} today.",
+                f"Not our day, {record}.",
+            ]
+
+        opener = random.choice(openers)
 
         tweet_parts = [
-            f"{emojis} DAILY RECAP {emojis}",
-            "",
-            f"📊 Record: {record}",
-            f"📈 Win Rate: {win_rate}",
+            opener,
             "",
             performance,
             "",
-            f"🏆 Join FREE: {DISCORD_INVITE_LINK}",
-            f"🌐 {WEBSITE_URL}",
+            f"More picks: {DISCORD_INVITE_LINK}",
             "",
-            "#SportsBetting #FreePicks #GamblingTwitter #SUSSWEATSHOP"
+            "#SportsBetting #FreePicks"
         ]
 
         tweet = "\n".join(tweet_parts)
 
         if len(tweet) > 280:
             tweet_parts = [
-                f"{emojis} RECAP: {record} ({win_rate}) {emojis}",
-                performance,
+                f"{opener} {performance}",
                 "",
-                f"🎯 {DISCORD_INVITE_LINK}",
-                "",
-                "#SportsBetting #FreePicks #SUSSWEATSHOP"
+                f"{DISCORD_INVITE_LINK}",
             ]
             tweet = "\n".join(tweet_parts)
 

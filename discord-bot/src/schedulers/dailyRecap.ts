@@ -4,6 +4,7 @@ import { betsRepo, BetVisibility } from '../database/repositories/bets';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { buildRecapEmbed } from '../commands/recap';
+import { generateRecapSummary, generateBigWinMessage } from '../services/gemini';
 
 /**
  * Post automated daily recap for the previous day's settled bets
@@ -64,14 +65,32 @@ export async function postDailyRecap(client: Client): Promise<boolean> {
       bets.length
     );
 
-    // Add header message
+    // Generate AI summary message
+    let aiSummary: string;
+    const isBigWin = stats.totalProfit >= 5; // 5+ units is a big win
+
+    if (isBigWin) {
+      const record = `${stats.wins}-${stats.losses}`;
+      aiSummary = await generateBigWinMessage(stats.totalProfit, record);
+    } else {
+      aiSummary = await generateRecapSummary({
+        date: dateStr,
+        stats,
+        sportBreakdown,
+        marketBreakdown,
+        totalBets: bets.length,
+      });
+    }
+
+    // Build the full message with emoji indicator and AI summary
     const resultEmoji = stats.totalProfit >= 0 ? '🟢' : '🔴';
     const profitStr = stats.totalProfit >= 0
       ? `+${stats.totalProfit.toFixed(2)}u`
       : `${stats.totalProfit.toFixed(2)}u`;
 
-    const headerMsg = `${resultEmoji} **Yesterday's Results** (${dateStr})\n` +
-      `Record: **${stats.wins}W-${stats.losses}L-${stats.pushes}P** | Profit: **${profitStr}**`;
+    const headerMsg = `${resultEmoji} **Yesterday's Results** (${dateStr})\n\n` +
+      `${aiSummary}\n\n` +
+      `📊 **${stats.wins}W-${stats.losses}L-${stats.pushes}P** | **${profitStr}**`;
 
     // Post the recap
     const message = await channel.send({

@@ -15,6 +15,11 @@ export const config = {
     link: process.env.WHOP_LINK || 'https://whop.com/your-product',
   },
 
+  // Gemini AI
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
+
   // Server
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',

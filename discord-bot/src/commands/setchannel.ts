@@ -8,7 +8,7 @@ import { settingsRepo } from '../database/repositories/settings';
 import { logger } from '../utils/logger';
 import { Command } from './index';
 
-const CHANNEL_TYPES = ['welcome', 'introductions', 'prompts', 'polls', 'sweats', 'announcements'] as const;
+const CHANNEL_TYPES = ['welcome', 'introductions', 'prompts', 'polls', 'sweats', 'announcements', 'freePicks', 'premiumPicks'] as const;
 
 export const setchannelCommand: Command = {
   data: new SlashCommandBuilder()
@@ -25,7 +25,9 @@ export const setchannelCommand: Command = {
           { name: 'Prompts', value: 'prompts' },
           { name: 'Polls', value: 'polls' },
           { name: 'Sweats', value: 'sweats' },
-          { name: 'Announcements', value: 'announcements' }
+          { name: 'Announcements', value: 'announcements' },
+          { name: 'Free Picks (Twitter auto-post)', value: 'freePicks' },
+          { name: 'Premium Picks', value: 'premiumPicks' }
         )
     )
     .addChannelOption((option) =>

@@ -222,12 +222,13 @@ class DiscordFetcher:
 
         return pick
 
-    def get_unposted_picks(self, limit: int = 5) -> List[Dict]:
+    def get_unposted_picks(self, limit: int = 5, require_link_and_image: bool = True) -> List[Dict]:
         """
         Get picks that haven't been posted to Twitter yet
 
         Args:
             limit: Maximum number of picks to return
+            require_link_and_image: If True, only return picks that have BOTH a link AND an image
 
         Returns:
             List of unposted pick dictionaries
@@ -243,8 +244,19 @@ class DiscordFetcher:
         unposted = [p for p in picks if p["id"] not in posted_ids]
 
         # Download images for unposted picks
-        for pick in unposted[:limit]:
+        for pick in unposted:
             self.get_pick_with_image(pick)
+
+        # Filter for picks with both link AND image if required
+        if require_link_and_image:
+            unposted = [
+                p for p in unposted
+                if p.get("links") and p.get("local_image_path")
+            ]
+            if unposted:
+                print(f"Found {len(unposted)} picks with both link and image")
+            else:
+                print("No picks found with both a link AND an image attached")
 
         return unposted[:limit]
 
