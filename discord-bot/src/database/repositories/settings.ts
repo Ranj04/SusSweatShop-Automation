@@ -91,7 +91,7 @@ export const settingsRepo = {
     return settings;
   },
 
-  getChannelId(type: 'welcome' | 'introductions' | 'prompts' | 'polls' | 'sweats' | 'announcements'): string | undefined {
+  getChannelId(type: 'welcome' | 'introductions' | 'prompts' | 'polls' | 'sweats' | 'announcements' | 'freePicks' | 'premiumPicks'): string | undefined {
     const keyMap: Record<string, keyof BotSettings> = {
       welcome: 'welcomeChannelId',
       introductions: 'introductionsChannelId',
@@ -99,11 +99,13 @@ export const settingsRepo = {
       polls: 'pollsChannelId',
       sweats: 'sweatsChannelId',
       announcements: 'announcementsChannelId',
+      freePicks: 'freePicksChannelId',
+      premiumPicks: 'premiumPicksChannelId',
     };
     return this.get(keyMap[type]);
   },
 
-  setChannelId(type: 'welcome' | 'introductions' | 'prompts' | 'polls' | 'sweats' | 'announcements', channelId: string): void {
+  setChannelId(type: 'welcome' | 'introductions' | 'prompts' | 'polls' | 'sweats' | 'announcements' | 'freePicks' | 'premiumPicks', channelId: string): void {
     const keyMap: Record<string, keyof BotSettings> = {
       welcome: 'welcomeChannelId',
       introductions: 'introductionsChannelId',
@@ -111,6 +113,8 @@ export const settingsRepo = {
       polls: 'pollsChannelId',
       sweats: 'sweatsChannelId',
       announcements: 'announcementsChannelId',
+      freePicks: 'freePicksChannelId',
+      premiumPicks: 'premiumPicksChannelId',
     };
     this.set(keyMap[type], channelId);
   },
